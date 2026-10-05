@@ -1,0 +1,9 @@
+node_modules
+dist
+*.local
+.env
+# never commit personal data to this public repo
+data/
+*.ics
+!tests/fixtures/*.ics
+*.tsbuildinfo

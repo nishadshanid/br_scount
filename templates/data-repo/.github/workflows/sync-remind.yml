@@ -1,0 +1,55 @@
+# Copy this file into your PRIVATE data repo at .github/workflows/sync-remind.yml
+name: Sync calendar & remind
+
+on:
+  schedule:
+    - cron: '15 */3 * * *' # calendar sync every 3 hours
+    - cron: '30 15 * * *' # 21:00 IST: sync + email reminder
+  workflow_dispatch:
+    inputs:
+      remind:
+        description: Also send the reminder email
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: scount-data
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      DATA_REPO: ${{ github.repository }}
+    steps:
+      - name: Check out the SCount app code (public repo)
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.APP_REPO || 'nishadshanid/br_scount' }}
+          path: app
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+        working-directory: app
+
+      - name: Sync Google Calendar
+        working-directory: app
+        run: npm run sync
+        env:
+          GCAL_ICAL_URL: ${{ secrets.GCAL_ICAL_URL }}
+
+      - name: Email reminder for unmarked sessions
+        if: github.event.schedule == '30 15 * * *' || github.event.inputs.remind == 'true'
+        working-directory: app
+        run: npm run remind
+        env:
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          NOTIFY_TO: ${{ secrets.NOTIFY_TO }}
