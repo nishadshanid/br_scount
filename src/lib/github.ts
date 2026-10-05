@@ -28,6 +28,14 @@ function decodeBase64(b64: string): string {
   return new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0)));
 }
 
+export interface WorkflowRun {
+  id: number;
+  status: 'queued' | 'in_progress' | 'completed' | string;
+  conclusion: 'success' | 'failure' | 'cancelled' | null | string;
+  created_at: string;
+  html_url: string;
+}
+
 export interface Versioned<T> {
   data: T;
   sha?: string;
@@ -102,6 +110,12 @@ export class GitHubStore {
       method: 'POST',
       body: JSON.stringify({ ref, inputs }),
     });
+  }
+
+  /** Most recent manual (workflow_dispatch) run of a workflow. */
+  async latestDispatchRun(workflowFile: string): Promise<WorkflowRun | null> {
+    const r = await this.req(`/actions/workflows/${workflowFile}/runs?event=workflow_dispatch&per_page=1`);
+    return (r.workflow_runs?.[0] as WorkflowRun) ?? null;
   }
 
   /**

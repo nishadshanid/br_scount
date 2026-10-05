@@ -6,6 +6,7 @@ import Inbox from './pages/Inbox';
 import Month from './pages/Month';
 import Reports from './pages/Reports';
 import SettingsPage from './pages/Settings';
+import { notify, useInstall } from './pwa';
 import { useData } from './state';
 
 type FormRequest = Omit<SessionFormProps, 'onClose'>;
@@ -27,10 +28,7 @@ function usePendingReminder(count: number) {
         /* ignore */
       }
       if (Date.now() - last < 3600_000) return;
-      new Notification('SCount', {
-        body: `${count} session${count > 1 ? 's are' : ' is'} waiting to be marked.`,
-        tag: 'scount-pending',
-      });
+      notify('SCount', `${count} session${count > 1 ? 's are' : ' is'} waiting to be marked.`);
       try {
         localStorage.setItem(NOTIFY_KEY, String(Date.now()));
       } catch {
@@ -44,7 +42,8 @@ function usePendingReminder(count: number) {
 }
 
 export default function App() {
-  const { config, sessions, loading, error, clearError, settingsExists } = useData();
+  const { config, sessions, loading, error, clearError, settingsExists, reload } = useData();
+  const install = useInstall();
   const [form, setForm] = useState<FormRequest | null>(null);
   const [now, setNow] = useState(() => new Date());
 
@@ -85,10 +84,20 @@ export default function App() {
               Settings
             </NavLink>
           </nav>
-          {config && (
-            <button className="btn-primary btn-sm" onClick={() => setForm({})}>
-              + Add session
+          {install.canPrompt && !install.installed && (
+            <button className="btn-ghost btn-sm" onClick={install.prompt}>
+              ⤓ Install
             </button>
+          )}
+          {config && (
+            <>
+              <button className="btn-ghost btn-sm" onClick={reload} disabled={loading} aria-label="Refresh" title="Refresh">
+                <span className={loading ? 'inline-block animate-spin' : ''}>↻</span>
+              </button>
+              <button className="btn-primary btn-sm" onClick={() => setForm({})}>
+                + Add session
+              </button>
+            </>
           )}
         </div>
       </header>

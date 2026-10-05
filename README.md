@@ -85,6 +85,11 @@ br_scount (this repo, public) ── GitHub Pages ──► the web app
    - press **Enable** under browser notifications
 5. Press **Sync now**. After about a minute press **Refresh**, and your sessions appear.
 
+### Install on your phone
+- **Android (Chrome):** open <https://nishadshanid.github.io/br_scount/>, then tap **Install app** in Settings or the header. You can also use ⋮ → **Install app**.
+- **iPhone (Safari):** open the link, tap Share (□↑), then **Add to Home Screen**.
+- Enter the token once inside the installed app. Use the **↻** button in the header to refresh.
+
 ### 6. Test the reminder email
 Go to `br_scount_data` → Actions → *Sync calendar & remind* → **Run workflow** → tick *Also send the reminder email*. You'll only get an email if a past session is still unmarked.
 

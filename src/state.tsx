@@ -34,7 +34,8 @@ interface DataState {
   saveSessions: (list: Session[], message: string) => Promise<void>;
   deleteSession: (s: Session) => Promise<void>;
   saveSettings: (s: Settings) => Promise<void>;
-  syncNow: () => Promise<void>;
+  /** Start the GitHub sync job, wait for it to finish, then reload. Resolves with a status message. */
+  syncNow: (onProgress: (msg: string) => void) => Promise<string>;
 }
 
 const Ctx = createContext<DataState | null>(null);
@@ -141,12 +142,37 @@ export function DataProvider({ children }: { children: ReactNode }) {
         throw e;
       }
     },
-    syncNow: async () => {
+    syncNow: async (onProgress) => {
+      const started = Date.now();
       try {
         await store!.dispatchWorkflow(WORKFLOW_FILE, 'main', { remind: 'false' });
       } catch (e) {
         throw new Error(fail(e, 'sync'));
       }
+      onProgress('Sync started on GitHub…');
+      // Poll the run (allow some clock skew between this device and GitHub).
+      for (let i = 0; i < 60; i++) {
+        await new Promise((r) => setTimeout(r, 5000));
+        let run;
+        try {
+          run = await store!.latestDispatchRun(WORKFLOW_FILE);
+        } catch {
+          continue;
+        }
+        if (!run || Date.parse(run.created_at) < started - 30_000) {
+          onProgress('Waiting for GitHub to start the sync…');
+          continue;
+        }
+        if (run.status !== 'completed') {
+          onProgress(`Syncing calendar… (${Math.round((Date.now() - started) / 1000)}s)`);
+          continue;
+        }
+        if (run.conclusion !== 'success') throw new Error(`Sync failed on GitHub (${run.conclusion}). Details: ${run.html_url}`);
+        onProgress('Loading new sessions…');
+        await reload();
+        return `✓ Synced at ${new Date().toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })}`;
+      }
+      return 'Sync is taking longer than usual. Press Refresh in a minute.';
     },
   };
 

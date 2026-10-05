@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { GitHubStore } from '../lib/github';
 import { SESSION_TYPES, type SessionType, type Settings } from '../lib/types';
+import { notify, useInstall } from '../pwa';
 import { useData } from '../state';
 
 export default function SettingsPage() {
@@ -9,6 +10,7 @@ export default function SettingsPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-5">
       <h1 className="text-2xl font-semibold">Settings</h1>
+      <InstallCard />
       <Connection config={config} onSave={setConfig} />
       {config && (
         <>
@@ -82,31 +84,39 @@ function Connection({ config, onSave }: { config: ReturnType<typeof useData>['co
   );
 }
 
-function SyncCard({ syncNow, reload }: { syncNow: () => Promise<void>; reload: () => Promise<void> }) {
+function SyncCard({ syncNow, reload }: { syncNow: ReturnType<typeof useData>['syncNow']; reload: () => Promise<void> }) {
   const [msg, setMsg] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   return (
     <div className="card flex flex-wrap items-center justify-between gap-3">
-      <div>
+      <div className="min-w-0 flex-1">
         <h2 className="font-semibold">Calendar sync</h2>
-        <p className="text-sm text-slate-500">Runs automatically every few hours. Trigger it now if you just changed the calendar.</p>
-        {msg && <p className={`mt-1 text-sm ${msg.startsWith('✗') ? 'text-red-600 dark:text-red-400' : ''}`}>{msg}</p>}
+        <p className="text-sm text-slate-500">Runs automatically every 3 hours. Use Sync now if you just changed the calendar.</p>
+        {msg && (
+          <p className={`mt-1 text-sm break-words ${msg.startsWith('✗') ? 'text-red-600 dark:text-red-400' : msg.startsWith('✓') ? 'text-green-600 dark:text-green-400' : ''}`}>
+            {msg}
+          </p>
+        )}
       </div>
       <div className="flex gap-2">
         <button
           className="btn-primary btn-sm"
+          disabled={busy}
           onClick={async () => {
+            setBusy(true);
             setMsg('Starting sync…');
             try {
-              await syncNow();
-              setMsg('Sync started on GitHub. It usually takes about a minute. Then press Refresh.');
+              setMsg(await syncNow(setMsg));
             } catch (e) {
               setMsg(`✗ ${e instanceof Error ? e.message : e}`);
+            } finally {
+              setBusy(false);
             }
           }}
         >
-          Sync now
+          {busy ? 'Syncing…' : 'Sync now'}
         </button>
-        <button className="btn-ghost btn-sm" onClick={reload}>
+        <button className="btn-ghost btn-sm" onClick={reload} disabled={busy}>
           Refresh
         </button>
       </div>
@@ -256,6 +266,35 @@ function NotificationsCard() {
       {supported && perm === 'default' && (
         <button className="btn-primary btn-sm" onClick={async () => setPerm(await Notification.requestPermission())}>
           Enable
+        </button>
+      )}
+      {perm === 'granted' && (
+        <button className="btn-ghost btn-sm" onClick={() => notify('SCount', 'Notifications are working 👍')}>
+          Send test
+        </button>
+      )}
+    </div>
+  );
+}
+
+function InstallCard() {
+  const { installed, canPrompt, ios, prompt } = useInstall();
+  if (installed) return null;
+  return (
+    <div className="card flex flex-wrap items-center justify-between gap-3 border-brand-500/40 bg-brand-50 dark:bg-brand-500/10">
+      <div className="min-w-0 flex-1">
+        <h2 className="font-semibold">Install SCount on this device</h2>
+        <p className="text-sm text-slate-600 dark:text-slate-300">
+          {canPrompt
+            ? 'Adds SCount to your home screen and opens it like an app.'
+            : ios
+              ? 'In Safari, tap the Share button (□↑), then "Add to Home Screen".'
+              : 'Open the browser menu (⋮) and choose "Install app" or "Add to Home screen".'}
+        </p>
+      </div>
+      {canPrompt && (
+        <button className="btn-primary btn-sm" onClick={prompt}>
+          ⤓ Install app
         </button>
       )}
     </div>
