@@ -59,14 +59,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setConfigState(c);
   };
 
-  const fail = (e: unknown) => {
-    const msg =
-      e instanceof GitHubError && e.status === 401
-        ? 'GitHub token is invalid or expired. Update it in Settings.'
-        : e instanceof Error
-          ? e.message
-          : String(e);
+  const TOKEN_PAGE = 'https://github.com/settings/personal-access-tokens';
+  const fail = (e: unknown, action: 'sync' | 'data' = 'data') => {
+    let msg = e instanceof Error ? e.message : String(e);
+    if (e instanceof GitHubError && e.status === 401) msg = 'GitHub token is invalid or expired. Update it in Settings.';
+    else if (e instanceof GitHubError && e.status === 403)
+      msg =
+        action === 'sync'
+          ? `Your token can't start the sync. Edit the token at ${TOKEN_PAGE} → Permissions → add "Actions: Read and write" (no need to re-enter it here).`
+          : `Your token can't access the data repo. Edit the token at ${TOKEN_PAGE} → give it "Contents: Read and write" on ${config?.repo ?? "your data repo"}.`;
     setError(msg);
+    return msg;
   };
 
   const reload = useCallback(async () => {
@@ -142,8 +145,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       try {
         await store!.dispatchWorkflow(WORKFLOW_FILE, 'main', { remind: 'false' });
       } catch (e) {
-        fail(e);
-        throw e;
+        throw new Error(fail(e, 'sync'));
       }
     },
   };

@@ -89,7 +89,7 @@ function SyncCard({ syncNow, reload }: { syncNow: () => Promise<void>; reload: (
       <div>
         <h2 className="font-semibold">Calendar sync</h2>
         <p className="text-sm text-slate-500">Runs automatically every few hours. Trigger it now if you just changed the calendar.</p>
-        {msg && <p className="mt-1 text-sm">{msg}</p>}
+        {msg && <p className={`mt-1 text-sm ${msg.startsWith('✗') ? 'text-red-600 dark:text-red-400' : ''}`}>{msg}</p>}
       </div>
       <div className="flex gap-2">
         <button
@@ -99,8 +99,8 @@ function SyncCard({ syncNow, reload }: { syncNow: () => Promise<void>; reload: (
             try {
               await syncNow();
               setMsg('Sync started on GitHub. It usually takes about a minute. Then press Refresh.');
-            } catch {
-              setMsg(null);
+            } catch (e) {
+              setMsg(`✗ ${e instanceof Error ? e.message : e}`);
             }
           }}
         >
